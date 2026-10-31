@@ -76,7 +76,7 @@ def send(chat_id, text, **params):
         tg("sendMessage", chat_id=chat_id, text=text, parse_mode="HTML",
            disable_web_page_preview=True, **params)
     except TelegramError as exc:
-        print(f"send to {chat_id} failed: {exc}")
+        print(f"a send failed: {exc}")
 
 
 def drop_buttons(chat_id, message_id):
