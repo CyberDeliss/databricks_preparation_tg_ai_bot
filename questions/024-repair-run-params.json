@@ -1,0 +1,16 @@
+{
+  "id": "024-repair-run-params",
+  "topic": "Раздел 8 · Debugging & Deploying",
+  "question": "Job: ingest → transform → report. ingest завершился успешно, transform упал из-за неверного параметра run_date, а report не запустился. Вы делаете Repair run и указываете исправленный run_date. Что произойдёт?",
+  "options": [
+    "Перезапустится весь job, включая ingest",
+    "Перезапустится только transform; report нужно запустить отдельно",
+    "Перезапустятся transform и зависящий от него report, а параметры из диалога Repair переопределят прежние значения",
+    "При Repair параметры менять нельзя, для этого нужен новый Run now"
+  ],
+  "correct": "C",
+  "explanation": "Repair запускает «only the subset of unsuccessful tasks and any dependent tasks». Параметры из диалога «override existing values». Вариант A неверен: «successful tasks and any tasks that depend on them are not re-run». Учтите, что задача перезапускается с начала, поэтому при частичной записи возможны дубли. Цель гайда: Analyze the errors and remediate the failed job runs with job repairs and parameter overrides.",
+  "sources": [
+    "https://docs.databricks.com/aws/en/jobs/repair-job-failures"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "id": "019-cdf-change-types",
+  "topic": "Раздел 5 · Cost & Performance",
+  "question": "На таблице silver_customers включён Change Data Feed (delta.enableChangeDataFeed = true). Downstream-задача читает table_changes('silver_customers', <version>) и должна получать только новые строки и новые значения обновлённых строк. Какой фильтр по _change_type нужен?",
+  "options": [
+    "_change_type IN ('insert', 'update_postimage')",
+    "_change_type IN ('insert', 'update_preimage')",
+    "_change_type IN ('insert', 'update')",
+    "_change_type = 'insert' — обновления в CDF не попадают"
+  ],
+  "correct": "A",
+  "explanation": "_change_type принимает значения «insert, update_preimage, update_postimage, delete». «preimage is the value before the update, postimage is the value after the update», поэтому новые значения содержатся в update_postimage. Дистрактор B выбирает старые значения, а значения 'update' в CDF нет вообще. CDF записывает изменения только после его включения: «only records changes that occur after change data feed was enabled». Цель гайда: Apply Change Data Feed (CDF) to expose row-level changes (updates/deletes) for efficient incremental downstream processing.",
+  "sources": [
+    "https://docs.databricks.com/aws/en/tables/features/change-data-feed"
+  ]
+}

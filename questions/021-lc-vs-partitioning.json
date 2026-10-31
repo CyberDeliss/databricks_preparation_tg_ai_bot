@@ -1,0 +1,16 @@
+{
+  "id": "021-lc-vs-partitioning",
+  "topic": "Раздел 5 · Cost & Performance",
+  "question": "Таблица партиционирована по event_date, и по ней регулярно выполняется ZORDER BY user_id. Её переводят на liquid clustering, причём ключи, возможно, позже придётся менять. Что верно?",
+  "options": [
+    "Партиционирование можно оставить и добавить CLUSTER BY поверх него",
+    "Liquid clustering несовместим с partitioning и ZORDER; ключи потом можно сменить через ALTER TABLE без немедленной перезаписи всех данных",
+    "Смена ключей кластеризации сразу переписывает всю таблицу",
+    "Liquid clustering рекомендуется только для таблиц больше 10 TB"
+  ],
+  "correct": "B",
+  "explanation": "«Clustering is not compatible with partitioning or ZORDER», поэтому вариант A невозможен. Ключи можно менять в любой момент через ALTER TABLE: новые ключи применяются к последующим OPTIMIZE и записям, а полную переразметку существующих данных делает OPTIMIZE <table> FULL. Databricks «recommends liquid clustering for all new tables», то есть независимо от размера. Цель гайда: Compare Liquid Clustering vs partitioning/ZORDER for a given table size and query pattern.",
+  "sources": [
+    "https://docs.databricks.com/aws/en/tables/clustering"
+  ]
+}

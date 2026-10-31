@@ -1,0 +1,17 @@
+{
+  "id": "022-abac-governed-tags",
+  "topic": "Раздел 6 · Security & Compliance",
+  "question": "В каталоге prod сотни таблиц с PII-колонками, и регулярно появляются новые. Нужно маскировать все такие колонки для всех, кроме группы pii_readers, причём новые таблицы должны покрываться без ручной настройки. Что выбрать?",
+  "options": [
+    "Навесить governed tag pii на колонки и создать на уровне каталога ABAC-политику column mask с MATCH COLUMNS has_tag('pii'), маскирующей UDF и EXCEPT pii_readers",
+    "Выполнить ALTER TABLE ... ALTER COLUMN ... SET MASK для каждой колонки каждой таблицы",
+    "Поставить governed tag pii на таблицы: колонки унаследуют тег, и маска применится без какой-либо политики",
+    "Создать dynamic view для каждой таблицы и выдать доступ только к view"
+  ],
+  "correct": "A",
+  "explanation": "Политика, привязанная к каталогу, «evaluates against all securables of that type within that catalog». MATCH COLUMNS выбирает колонки по тегам, EXCEPT исключает отдельных principals, а логику маски задаёт UDF. Для новых помеченных объектов «the policy applies automatically». Вариант B работает, но каждую таблицу пришлось бы настраивать отдельно. Вариант C неверен: «column tags do not inherit from the parent table», и без политики тег сам ничего не маскирует. Цель гайда: Apply attribute-based access control (ABAC) policies with governed tags to enforce row filters and column masks at scale.",
+  "sources": [
+    "https://docs.databricks.com/aws/en/data-governance/unity-catalog/abac/core-concepts",
+    "https://docs.databricks.com/aws/en/data-governance/unity-catalog/abac/"
+  ]
+}

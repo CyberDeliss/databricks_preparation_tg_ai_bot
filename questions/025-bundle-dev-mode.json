@@ -1,0 +1,16 @@
+{
+  "id": "025-bundle-dev-mode",
+  "topic": "Раздел 8 · Debugging & Deploying",
+  "question": "В bundle у target dev задано mode: development, а у job в конфиге есть ежедневное расписание. Разработчик выполняет databricks bundle deploy -t dev. Что произойдёт?",
+  "options": [
+    "Job развернётся с исходным именем и активным расписанием",
+    "К именам ресурсов добавится префикс разработчика, расписания и триггеры будут на паузе, а пайплайны получат development: true",
+    "Деплой упадёт, если текущая Git-ветка не совпадает с веткой, указанной в target",
+    "Деплой потребует, чтобы run_as был service principal"
+  ],
+  "correct": "B",
+  "explanation": "В development mode bundle «Pauses all schedules and triggers on deployed resources», добавляет к именам ресурсов префикс конкретного разработчика и «Marks all related deployed Lakeflow pipelines as development: true». Проверка Git-ветки (C) относится к mode: production: «Validates that the current Git branch is equal to» ветке target. Цель гайда: Deploy Databricks resources using Declarative Automation Bundles (formerly Databricks Asset Bundles).",
+  "sources": [
+    "https://docs.databricks.com/aws/en/dev-tools/bundles/deployment-modes"
+  ]
+}

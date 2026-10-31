@@ -1,0 +1,16 @@
+{
+  "id": "018-disk-cache-reads",
+  "topic": "Раздел 5 · Cost & Performance",
+  "question": "Дашборд много раз в день выполняет одни и те же запросы к Delta-таблице на classic-кластере с воркерами с SSD (disk cache включён). Что верно про disk cache (ранее Delta cache)?",
+  "options": [
+    "Кэш заработает, только если в коде явно вызвать df.cache()",
+    "После UPDATE таблицы кэш нужно сбросить вручную, иначе запросы вернут устаревшие данные",
+    "При первом чтении копии файлов автоматически сохраняются на локальном диске воркеров, а изменения файлов отслеживаются автоматически",
+    "Данные кэшируются в памяти драйвера, и кэш применяется к любому DataFrame или RDD"
+  ],
+  "correct": "C",
+  "explanation": "Disk cache срабатывает «Automatically, on the first read (if cache is enabled)» и хранит «Local files on a worker node». Он «automatically detects when data files are created, deleted, modified, or overwritten», поэтому сбрасывать его вручную не нужно. Самый соблазнительный дистрактор A описывает Apache Spark cache: он запускается «Manually, requires code changes». Цель гайда: Understand how caching (Delta cache) improves query performance for repeated reads of the same data.",
+  "sources": [
+    "https://docs.databricks.com/aws/en/optimizations/disk-cache"
+  ]
+}

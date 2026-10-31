@@ -1,0 +1,17 @@
+{
+  "id": "023-gdpr-dv-purge",
+  "topic": "Раздел 6 · Security & Compliance",
+  "question": "По GDPR-запросу на удаление вы выполнили DELETE строк пользователя из Delta-таблицы, на которой включены deletion vectors. Что нужно сделать, чтобы данные были удалены физически?",
+  "options": [
+    "Ничего: DELETE сразу физически удаляет строки из файлов",
+    "Только VACUUM",
+    "Только OPTIMIZE",
+    "Выполнить REORG TABLE ... APPLY (PURGE), а затем VACUUM для удаления старых файлов"
+  ],
+  "correct": "D",
+  "explanation": "При включённых deletion vectors «you must also run REORG TABLE ... APPLY (PURGE) to permanently delete underlying records». Затем нужен VACUUM, потому что Delta «retains table history, including deleted records», а VACUUM удаляет старые версии. Только VACUUM (B) недостаточно: DELETE с deletion vectors лишь помечает строки, и они остаются в файлах, пока те не будут переписаны. Также нужно удалить данные в upstream-источниках. Цель гайда: Implement a data purging strategy that satisfies data retention and deletion policies (e.g., GDPR right-to-erasure, GDPR right-to-be-forgotten deletion) using Delta Lake and Unity Catalog features.",
+  "sources": [
+    "https://docs.databricks.com/aws/en/security/privacy/gdpr-delta",
+    "https://docs.databricks.com/aws/en/delta/deletion-vectors"
+  ]
+}

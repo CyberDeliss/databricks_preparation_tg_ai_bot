@@ -1,0 +1,16 @@
+{
+  "id": "026-uc-privilege-inheritance",
+  "topic": "Раздел 7 · Data Governance",
+  "question": "Админ выполнил GRANT SELECT ON CATALOG sales TO analysts. Аналитики всё равно не могут прочитать sales.crm.orders. Почему?",
+  "options": [
+    "SELECT на каталоге не наследуется таблицами, его нужно выдавать на каждую таблицу",
+    "Наследование распространяется только на таблицы, созданные после GRANT",
+    "Чтобы читать таблицу, нужно быть её владельцем",
+    "Помимо SELECT нужны USE CATALOG на каталог и USE SCHEMA на схему"
+  ],
+  "correct": "D",
+  "explanation": "Для чтения нужны USE CATALOG, USE SCHEMA и SELECT: «All three are required». Вариант A неверен: привилегия на контейнере «automatically applies to all current and future child objects». Пример из документации: GRANT USE CATALOG, USE SCHEMA, SELECT ON CATALOG sales TO finance_team. Цель гайда: Demonstrate understanding of the Unity Catalog permission inheritance model as a mechanism for managing access control across catalogs, schemas, and objects.",
+  "sources": [
+    "https://docs.databricks.com/aws/en/data-governance/unity-catalog/access-control/permissions-concepts"
+  ]
+}

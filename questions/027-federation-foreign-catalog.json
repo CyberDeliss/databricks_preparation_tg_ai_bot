@@ -1,0 +1,17 @@
+{
+  "id": "027-federation-foreign-catalog",
+  "topic": "Раздел 2 · Data Ingestion & Acquisition",
+  "question": "Админ создал Lakehouse Federation connection pg_conn к PostgreSQL и является её владельцем. Data engineer должен создать на её основе foreign catalog pg_sales. Какие привилегии ему нужны и что можно делать с таблицами pg_sales?",
+  "options": [
+    "CREATE CATALOG на metastore и CREATE FOREIGN CATALOG на connection; запросы к foreign catalog только на чтение",
+    "Только USE CONNECTION на connection; в таблицы можно писать через INSERT",
+    "CREATE CONNECTION на metastore; в таблицы можно писать через INSERT",
+    "Только CREATE CATALOG на metastore; запросы только на чтение"
+  ],
+  "correct": "A",
+  "explanation": "Для foreign catalog нужны CREATE CATALOG на metastore и либо владение connection, либо привилегия CREATE FOREIGN CATALOG на ней. Учётные данные берутся из connection: «Access credentials for the foreign catalog come from the named connection». Доступ к объектам каталога управляется привилегиями Unity Catalog, и «Queries are read-only» (исключение — федерация legacy Hive metastore). Вариант D не учитывает привилегию на connection. USE CONNECTION нужна для использования connection в Lakeflow pipelines. Цель гайда: Configure Lakehouse Federation with governance across supported source systems, applying UC permissions and connection-level credentials.",
+  "sources": [
+    "https://docs.databricks.com/aws/en/query-federation/database-federation",
+    "https://docs.databricks.com/aws/en/query-federation/connections"
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "id": "020-cluster-by-auto",
+  "topic": "Раздел 5 · Cost & Performance",
+  "question": "Есть большая Unity Catalog managed Delta-таблица. Аналитики фильтруют её по разным колонкам, и набор фильтров со временем меняется; DELETE/UPDATE почти не выполняются. Команда не хочет вручную подбирать ключи кластеризации. Какую оптимизацию выбрать?",
+  "options": [
+    "PARTITIONED BY (event_date) плюс регулярный OPTIMIZE ... ZORDER BY",
+    "Только включить deletion vectors",
+    "CLUSTER BY с четырьмя колонками и ежеквартальной ручной сменой ключей",
+    "CLUSTER BY AUTO при включённой predictive optimization"
+  ],
+  "correct": "D",
+  "explanation": "При CLUSTER BY AUTO «Databricks analyzes the table's historical query workload» и сам выбирает ключи. При этом «Automatic liquid clustering requires predictive optimization» для автоматического выбора ключей. Deletion vectors (B) ускоряют другое: «accelerate DELETE, UPDATE, and MERGE operations». Для фильтрации по меняющимся колонкам они не помогают. Цель гайда: Choose the appropriate Delta optimization technique (deletion vectors, Liquid Clustering, CLUSTER BY AUTO) for a given table access pattern.",
+  "sources": [
+    "https://docs.databricks.com/aws/en/tables/clustering",
+    "https://docs.databricks.com/aws/en/delta/deletion-vectors"
+  ]
+}
