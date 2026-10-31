@@ -2,7 +2,8 @@
 
 Runs inside GitHub Actions and stores NOTHING about users:
 
-  python bot.py poll    - answer everything people sent since the last run
+  python bot.py run 340 - long-lived worker for N minutes (replies within seconds)
+  python bot.py poll    - answer everything people sent since the last run, then exit
   python bot.py daily   - send today's question to every chat id listed in TG_CHAT_ID
   python bot.py check   - validate the question files
 
@@ -28,6 +29,7 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -176,23 +178,57 @@ def handle_callback(cb):
         send_question(chat_id, i + 1)
 
 
+def process(updates):
+    for upd in updates:
+        try:
+            if "callback_query" in upd:
+                handle_callback(upd["callback_query"])
+            elif "chat" in (upd.get("message") or {}):
+                handle_message(upd["message"])
+        except Exception as exc:  # one bad update must not block the rest
+            print(f"update {upd['update_id']} failed: {exc!r}")
+
+
 def poll():
+    """One-shot: handle everything queued since the last run, then exit."""
     tg("deleteWebhook")  # getUpdates does not work while a webhook is set
     while True:
         updates = tg("getUpdates", timeout=0, allowed_updates=["message", "callback_query"])
         if not updates:
             break
-        for upd in updates:
-            try:
-                if "callback_query" in upd:
-                    handle_callback(upd["callback_query"])
-                elif "chat" in (upd.get("message") or {}):
-                    handle_message(upd["message"])
-            except Exception as exc:  # one bad update must not block the rest
-                print(f"update {upd['update_id']} failed: {exc!r}")
+        process(updates)
         # confirming with offset = last + 1 makes Telegram forget these updates
         tg("getUpdates", offset=updates[-1]["update_id"] + 1, timeout=0)
     print("poll done")
+
+
+def run(minutes):
+    """Long-lived worker: long-poll Telegram so replies arrive within seconds.
+
+    Used in the public repo (unlimited Actions minutes). The workflow starts a new worker
+    every hour; concurrency keeps exactly one running and one queued, so when a worker
+    reaches its time limit the queued one takes over almost immediately.
+    """
+    tg("deleteWebhook")
+    deadline = time.monotonic() + minutes * 60
+    offset = None
+    while time.monotonic() < deadline:
+        wait = int(max(1, min(50, deadline - time.monotonic())))
+        params = {"timeout": wait, "allowed_updates": ["message", "callback_query"]}
+        if offset is not None:
+            params["offset"] = offset
+        try:
+            updates = tg("getUpdates", http_timeout=wait + 15, **params)
+        except Exception as exc:
+            print(f"getUpdates failed: {exc!r}; retrying in 10s")
+            time.sleep(10)
+            continue
+        if updates:
+            process(updates)
+            offset = updates[-1]["update_id"] + 1
+    if offset is not None:  # confirm the last batch so the next worker doesn't repeat it
+        tg("getUpdates", offset=offset, timeout=0)
+    print("worker finished")
 
 
 def is_daily_slot(schedule):
@@ -245,8 +281,12 @@ def check():
 
 if __name__ == "__main__":
     mode = sys.argv[1] if len(sys.argv) > 1 else "poll"
+    minutes = float(sys.argv[2]) if len(sys.argv) > 2 else 340
     if mode == "check":
         sys.exit(0 if check() else 1)
     if not TOKEN:
         sys.exit("TG_BOT_SECRET is not set")
-    {"poll": poll, "daily": daily}[mode]()
+    if mode == "run":
+        run(minutes)
+    else:
+        {"poll": poll, "daily": daily}[mode]()

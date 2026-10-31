@@ -19,9 +19,11 @@ A Telegram bot with practice questions for the Databricks Certified Data Enginee
 
 To find a chat id, have the person message the bot, then open `https://api.telegram.org/bot<TOKEN>/getUpdates` **before the bot's next run** and look for `"chat":{"id":...}`. Alternatively, they can ask @userinfobot.
 
-## Timing (private repo)
+## Timing
 
-The bot checks for messages every 30 minutes to stay within the free 2000 Actions minutes a month, so replies take up to ~30–40 minutes. GitHub cron is UTC-only, so two daily crons (08:00 and 09:00 UTC) run and the bot sends only on the one that is 10:00 in Belgrade.
+The repo is public, so Actions minutes are free and unlimited. A worker long-polls Telegram and replies within seconds. Each worker runs ~5h40m; a new one is queued every hour and takes over as soon as the previous one ends. To restart it by hand: Actions → Telegram bot → Run workflow → mode `run`. Mode `daily` sends today's question to `TG_CHAT_ID` right now.
+
+GitHub cron is UTC-only, so two daily crons (08:00 and 09:00 UTC) run, and the bot sends only on the one that is 10:00 in Belgrade.
 
 ## Adding questions
 

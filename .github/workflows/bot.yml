@@ -1,26 +1,25 @@
 name: Telegram bot
 
-# Private repo: 2000 free Actions minutes/month, each run billed as >= 1 minute.
-# Polling every 30 minutes (~1440 min/month) plus two short daily runs fits.
-# GitHub may delay scheduled runs, so replies can take up to ~30-40 minutes.
+# Public repo: Actions minutes are unlimited, so a long-lived worker long-polls Telegram
+# and replies within seconds. A new worker is scheduled every hour; the `telegram-worker`
+# concurrency group keeps exactly one running and one queued, so when a worker hits its
+# ~5h40m limit the queued one takes over almost immediately.
+# The daily question has its own short runs (GitHub cron is UTC-only: 08:00 and 09:00 UTC,
+# the bot sends only on the one that is 10:00 in Belgrade).
 
 on:
   schedule:
-    - cron: "*/30 * * * *"   # answer /start, /question and buttons
-    - cron: "0 8 * * *"      # 10:00 Belgrade in summer (CEST)
-    - cron: "0 9 * * *"      # 10:00 Belgrade in winter (CET); the bot picks the right one
+    - cron: "0 * * * *"   # keep a worker running
+    - cron: "0 8 * * *"   # 10:00 Belgrade in summer (CEST)
+    - cron: "0 9 * * *"   # 10:00 Belgrade in winter (CET)
   push:
     branches: [main]
-    paths: ["questions/**", "bot.py"]
+    paths: ["questions/**", "bot.py", ".github/workflows/bot.yml"]
   workflow_dispatch:
     inputs:
       mode:
-        description: "poll or daily"
-        default: poll
-
-concurrency:
-  group: telegram-bot
-  cancel-in-progress: false
+        description: "run (start a worker) or daily (send today's question now)"
+        default: run
 
 jobs:
   check:
@@ -34,8 +33,29 @@ jobs:
           python-version: "3.12"
       - run: python bot.py check
 
-  bot:
-    if: github.event_name != 'push'
+  worker:
+    if: >-
+      github.event.schedule == '0 * * * *' ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'run')
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    concurrency:
+      group: telegram-worker
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Answer messages (long polling)
+        env:
+          TG_BOT_SECRET: ${{ secrets.TG_BOT_SECRET }}
+        run: python bot.py run 340
+
+  daily:
+    if: >-
+      github.event.schedule == '0 8 * * *' || github.event.schedule == '0 9 * * *' ||
+      (github.event_name == 'workflow_dispatch' && inputs.mode == 'daily')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -43,10 +63,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Run bot
+      - name: Send today's question
         env:
           TG_BOT_SECRET: ${{ secrets.TG_BOT_SECRET }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
           SCHEDULE: ${{ github.event.schedule }}
-          MODE: ${{ github.event.schedule == '*/30 * * * *' && 'poll' || (github.event_name == 'schedule' && 'daily' || inputs.mode) }}
-        run: python bot.py "$MODE"
+        run: python bot.py daily
