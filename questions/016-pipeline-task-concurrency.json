@@ -1,0 +1,16 @@
+{
+  "id": "016-pipeline-task-concurrency",
+  "topic": "Раздел 1 · Lakeflow Jobs",
+  "question": "В job есть pipeline task, а у job стоит max_concurrent_runs = 5. Сколько апдейтов этого пайплайна реально пойдут параллельно?",
+  "options": [
+    "5",
+    "Столько, сколько воркеров в кластере",
+    "1 — пайплайн выполняет только один апдейт за раз",
+    "0 — pipeline task нельзя запускать при max_concurrent_runs > 1"
+  ],
+  "correct": "C",
+  "explanation": "В доках pipeline task: «A pipeline can only run one update at a time», поэтому job с pipeline task фактически ограничен одним одновременным прогоном этого пайплайна, сколько бы ни стояло в max_concurrent_runs.",
+  "sources": [
+    "https://docs.databricks.com/aws/en/jobs/tasks/pipeline"
+  ]
+}

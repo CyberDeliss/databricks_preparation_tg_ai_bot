@@ -1,0 +1,16 @@
+{
+  "id": "015-if-else-compare",
+  "topic": "Раздел 1 · Lakeflow Jobs",
+  "question": "В If/else condition task левый операнд — task value 12.0, правый — 12. Какое сравнение вернёт true?",
+  "options": [
+    "12.0 == 12",
+    "12.0 < 12",
+    "12.0 >= 12",
+    "Ни одно — разные типы всегда дают false"
+  ],
+  "correct": "C",
+  "explanation": "«The == and != operators perform string comparison», а «>, >=, <, <= perform numeric comparisons». Поэтому 12.0 == 12 → false (строки разные), а 12.0 >= 12 → true. Для операндов из task values разрешены только number, string и boolean.",
+  "sources": [
+    "https://docs.databricks.com/aws/en/jobs/tasks/if-else"
+  ]
+}

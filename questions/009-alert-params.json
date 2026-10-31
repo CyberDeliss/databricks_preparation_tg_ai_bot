@@ -1,0 +1,16 @@
+{
+  "id": "009-alert-params",
+  "topic": "Раздел 4 · Мониторинг и алерты",
+  "question": "Коллега хочет сделать запрос алерта, который через параметр получает pipeline_id и парсит event_log(pipeline_id) на каждом запуске. Какой главный документированный блокер у этой идеи со стороны алертов?",
+  "options": [
+    "Алерты не поддерживают запросы с параметрами",
+    "Алерты не умеют работать с JSON",
+    "Алерты можно запускать только вручную",
+    "Алерты работают только на classic SQL warehouse"
+  ],
+  "correct": "A",
+  "explanation": "«Alerts do not support queries with parameters». Плюс event_log() TVF может вызывать только владелец streaming table/materialized view. Правильный паттерн — один раз за прогон сохранять метрики в маленькую Delta-таблицу (dq_metrics) и направлять алерт на неё.",
+  "sources": [
+    "https://docs.databricks.com/aws/en/sql/user/alerts/create"
+  ]
+}

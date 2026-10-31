@@ -1,0 +1,16 @@
+{
+  "id": "002-fail-update",
+  "topic": "Раздел 3 · Expectations",
+  "question": "Что происходит, когда срабатывает expectation с ON VIOLATION FAIL UPDATE?",
+  "options": [
+    "Невалидная строка отбрасывается, остальные пишутся",
+    "Транзакция атомарно откатывается, нужно ручное вмешательство, метрики по правилу не записываются",
+    "Апдейт продолжается, но пайплайн помечается как degraded",
+    "Невалидные строки уходят в quarantine-таблицу автоматически"
+  ],
+  "correct": "B",
+  "explanation": "FAIL UPDATE: «Invalid records prevent the update from succeeding», «the system atomically rolls back the transaction», «Manual intervention is required before reprocessing». И важно: «Because fail causes the update to fail… metrics are not recorded». Поэтому FAIL UPDATE ставят только на критические инварианты (например, null в бизнес-ключе), а не на всё подряд.",
+  "sources": [
+    "https://docs.databricks.com/aws/en/ldp/expectations"
+  ]
+}

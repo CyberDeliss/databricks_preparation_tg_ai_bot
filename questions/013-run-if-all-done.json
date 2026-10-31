@@ -1,0 +1,16 @@
+{
+  "id": "013-run-if-all-done",
+  "topic": "Раздел 1 · Lakeflow Jobs",
+  "question": "Нужна финальная задача, которая записывает итог прогона в журнал при любом исходе предыдущих задач. Какое условие Run if?",
+  "options": [
+    "All succeeded",
+    "None failed",
+    "All done",
+    "At least one succeeded"
+  ],
+  "correct": "C",
+  "explanation": "«All done — The task is run after all its dependencies have run, regardless of the status of the dependent runs». All succeeded — значение по умолчанию, при падении зависимости задача не запустится. None failed требует, чтобы ничего не упало.",
+  "sources": [
+    "https://docs.databricks.com/aws/en/jobs/run-if"
+  ]
+}

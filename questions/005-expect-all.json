@@ -1,0 +1,17 @@
+{
+  "id": "005-expect-all",
+  "topic": "Раздел 3 · Expectations",
+  "question": "Нужно повесить пять drop-правил на один dataset одной строкой, чтобы каждое правило давало свою метрику. Что верно?",
+  "options": [
+    "Использовать @dp.expect_all_or_drop({...}) со словарём описание → условие; группировка доступна только в Python",
+    "В SQL написать одно EXPECT с пятью условиями через AND",
+    "Использовать @dp.expect_or_drop со списком условий",
+    "В SQL и Python группировка работает одинаково через EXPECT ALL"
+  ],
+  "correct": "A",
+  "explanation": "Декораторы expect_all / expect_all_or_drop / expect_all_or_fail «require descriptions and constraints to be passed as a dict», и каждое правило «has its own description and reports granular metrics». При этом «only Python allows you to group multiple expectations and specify collective actions». Одно EXPECT с AND дало бы одну общую метрику — вы не узнаете, какое правило нарушено.",
+  "sources": [
+    "https://docs.databricks.com/aws/en/ldp/developer/ldp-python-ref-expectations",
+    "https://docs.databricks.com/aws/en/ldp/expectations"
+  ]
+}

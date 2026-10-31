@@ -1,0 +1,59 @@
+name: Telegram bot
+
+# Private repo: GitHub gives 2000 free Actions minutes/month, and every run is billed as
+# at least 1 minute. Waking up every 30 minutes = ~1440 min/month, which fits.
+# GitHub may delay scheduled runs, so replies can take up to ~30-40 minutes.
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["questions/**", "bot.py"]
+
+permissions:
+  contents: write   # to save the encrypted progress file to the bot-state branch
+
+concurrency:
+  group: telegram-bot
+  cancel-in-progress: false
+
+jobs:
+  check:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q cryptography
+      - name: Validate questions
+        run: python bot.py check
+
+  bot:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check out saved progress (bot-state branch)
+        run: |
+          if git ls-remote --exit-code --heads origin bot-state >/dev/null; then
+            git clone -q --depth 1 --branch bot-state \
+              "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" state
+          else
+            mkdir state && cd state && git init -q -b bot-state && \
+            git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}"
+          fi
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -q cryptography
+      - name: Answer messages and send daily questions
+        env:
+          TG_BOT_SECRET: ${{ secrets.TG_BOT_SECRET }}
+          STATE_FILE: state/state.enc
+        run: python bot.py once

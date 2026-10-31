@@ -1,0 +1,16 @@
+{
+  "id": "017-alert-task",
+  "topic": "Раздел 1 · Lakeflow Jobs + алерты",
+  "question": "Вы добавили существующий Databricks SQL alert в job как SQL alert task. Что верно?",
+  "options": [
+    "Задача передаёт в запрос алерта параметры job",
+    "Задача оценивает алерт независимо от собственного расписания алерта и не поддерживает параметры",
+    "Задача работает только с legacy alerts",
+    "Задача не требует SQL warehouse"
+  ],
+  "correct": "B",
+  "explanation": "«The SQL alert task evaluates the alert independently from any schedule configured on the alert itself» и «SQL alert tasks do not support parameters». Нужны существующий Databricks SQL alert (legacy не поддерживаются), право не ниже CAN RUN на алерт и доступ к serverless или pro SQL warehouse.",
+  "sources": [
+    "https://docs.databricks.com/aws/en/jobs/tasks/alert"
+  ]
+}

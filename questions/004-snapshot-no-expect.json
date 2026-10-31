@@ -1,0 +1,16 @@
+{
+  "id": "004-snapshot-no-expect",
+  "topic": "Раздел 3 · Expectations + AUTO CDC",
+  "question": "Вы применяете снапшоты в измерение через AUTO CDC FROM SNAPSHOT и хотите добавить проверки качества. Где их ставить?",
+  "options": [
+    "Прямо на AUTO CDC FROM SNAPSHOT — как на любой flow",
+    "Выше по потоку — на view/flow, который читает снапшот, потому что на AUTO CDC FROM SNAPSHOT expectations не поддерживаются",
+    "Только через FAIL UPDATE на целевой таблице",
+    "Expectations вообще нельзя использовать вместе с AUTO CDC"
+  ],
+  "correct": "B",
+  "explanation": "В доках прямо: «Expectations are not supported with AUTO CDC FROM SNAPSHOT». Поэтому валидацию делают раньше — на источнике, который читает снапшот в пайплайн. (С обычным AUTO CDC по фиду такого ограничения в этой фразе нет — оно именно про FROM SNAPSHOT.)",
+  "sources": [
+    "https://docs.databricks.com/aws/en/ldp/expectations"
+  ]
+}

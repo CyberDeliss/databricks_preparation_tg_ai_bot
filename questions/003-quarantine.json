@@ -1,0 +1,17 @@
+{
+  "id": "003-quarantine",
+  "topic": "Раздел 3 · Expectations",
+  "question": "Бизнес хочет, чтобы строки с amount < 0 не терялись, а попадали в очередь на ручную проверку, при этом в downstream шли только чистые строки. Что выбрать?",
+  "options": [
+    "CONSTRAINT ... EXPECT (amount >= 0) ON VIOLATION DROP ROW",
+    "CONSTRAINT ... EXPECT (amount >= 0) ON VIOLATION FAIL UPDATE",
+    "Quarantine-паттерн: флаг is_quarantined + две вьюхи с фильтрами по флагу",
+    "WHERE amount >= 0 в запросе"
+  ],
+  "correct": "C",
+  "explanation": "DROP ROW удаляет строки до записи — осмотреть их потом нельзя. Документированный quarantine-паттерн: вычислить флаг (NOT(...) AS is_quarantined / .withColumn(\"is_quarantined\", expr(rules))), писать все строки в одну таблицу и маршрутизировать вьюхами filter(\"is_quarantined=false\") и filter(\"is_quarantined=true\"). Это даёт «separate processing paths for valid and invalid records».",
+  "sources": [
+    "https://docs.databricks.com/aws/en/ldp/expectation-patterns",
+    "https://docs.databricks.com/aws/en/ldp/expectations"
+  ]
+}

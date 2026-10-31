@@ -1,0 +1,17 @@
+{
+  "id": "011-timers-vs-deps",
+  "topic": "Раздел 1 · Lakeflow Jobs",
+  "question": "Пайплайн, ноутбук с метриками и SQL-алерт настроены как три отдельных job: в :00, :05 и :10. Что не так и как правильно?",
+  "options": [
+    "Всё нормально, если пайплайн обычно укладывается в 5 минут",
+    "Нет порядка «раньше-позже»: медленный прогон даст алерт на устаревших данных. Нужен один job с зависимостями pipeline → metrics → alert",
+    "Нужно увеличить интервалы до 30 минут",
+    "Нужно запускать всё одновременно с max_concurrent_runs = 3"
+  ],
+  "correct": "B",
+  "explanation": "Независимые расписания не гарантируют порядок — это race condition. Lakeflow Jobs: «You can control the execution order of tasks by specifying dependencies between them». Pipeline task «starts a single update and stops when the update completes», поэтому следующая задача стартует строго после окончания апдейта.",
+  "sources": [
+    "https://docs.databricks.com/aws/en/jobs/control-flow",
+    "https://docs.databricks.com/aws/en/jobs/tasks/pipeline"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "id": "014-task-values",
+  "topic": "Раздел 1 · Lakeflow Jobs",
+  "question": "Ноутбук-задача persist_metrics должна передать max_failed_pct следующей задаче. Что верно про task values?",
+  "options": [
+    "Можно передать DataFrame целиком, если он меньше 1 ГБ",
+    "Значение должно быть валидным JSON до 48 KiB; set/get работают только в Python-ноутбуках",
+    "Работают в SQL- и Scala-ноутбуках так же, как в Python",
+    "Лучше записать значение в глобальную переменную Python — она видна во всём job"
+  ],
+  "correct": "B",
+  "explanation": "Task values: «Only values expressible as valid JSON are allowed», «The size of the JSON representation of the value cannot exceed 48 KiB», функции «work only in notebooks where Python is the language». Глобалки и /tmp не переживают границу задачи — задачи бывают на разном compute и в разных процессах. Downstream лучше ссылаться через {{tasks.<task>.values.<key>}}, а не get(taskKey=...).",
+  "sources": [
+    "https://docs.databricks.com/aws/en/jobs/task-values"
+  ]
+}

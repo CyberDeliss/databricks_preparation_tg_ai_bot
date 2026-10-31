@@ -1,0 +1,16 @@
+{
+  "id": "001-expect-default",
+  "topic": "Раздел 3 · Expectations",
+  "question": "В Lakeflow Declarative Pipelines вы объявили:\nCONSTRAINT plausible_email EXPECT (email RLIKE '...')\nбез ON VIOLATION. Что произойдёт с записью, которая нарушает это правило?",
+  "options": [
+    "Запись будет отброшена до записи в таблицу",
+    "Апдейт упадёт и откатится",
+    "Запись попадёт в целевую таблицу, а нарушение будет посчитано в метриках",
+    "Правило будет проигнорировано: без ON VIOLATION expectation не работает"
+  ],
+  "correct": "C",
+  "explanation": "Без ON VIOLATION действует поведение по умолчанию — retain: «Invalid records are written to the target», «Retaining invalid records is the default behavior for expectations». Запись остаётся, а счётчики pass/fail попадают в event log. Это удобно, чтобы сначала измерить качество, а уже потом решать, дропать или ронять.",
+  "sources": [
+    "https://docs.databricks.com/aws/en/ldp/expectations"
+  ]
+}

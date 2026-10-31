@@ -1,0 +1,17 @@
+{
+  "id": "008-alert-condition",
+  "topic": "Раздел 4 · Мониторинг и алерты",
+  "question": "Нужно алертить, когда failed_pct > 5 И при этом (passed + failed) >= 1000. Как правильно настроить Databricks SQL alert?",
+  "options": [
+    "Вписать оба условия через AND в поле Condition алерта",
+    "Посчитать булево в запросе (CASE WHEN ... THEN 1 ELSE 0 END) и сработать на первое значение = 1",
+    "Создать два алерта и надеяться, что они сработают одновременно",
+    "Передать порог через параметр запроса"
+  ],
+  "correct": "B",
+  "explanation": "Условие алерта проверяет одно значение: «the first value of a column in the query result» или «an aggregation across all rows of a single column, such as SUM or AVERAGE», против оператора и статического порога. Составную логику кладут в запрос, который «returns 1» когда условие выполнено, и триггерят на 1. Параметры не подходят: «Alerts do not support queries with parameters».",
+  "sources": [
+    "https://docs.databricks.com/aws/en/sql/user/alerts/create",
+    "https://docs.databricks.com/aws/en/sql/user/alerts/query-patterns"
+  ]
+}

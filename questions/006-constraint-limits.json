@@ -1,0 +1,17 @@
+{
+  "id": "006-constraint-limits",
+  "topic": "Раздел 3 · Expectations",
+  "question": "Какое условие НЕЛЬЗЯ использовать в expectation?",
+  "options": [
+    "customer_id IS NOT NULL",
+    "amount >= 0 AND currency IN ('USD','EUR')",
+    "customer_id IN (SELECT id FROM dim_customers)",
+    "email RLIKE '^[^@]+@[^@]+$'"
+  ],
+  "correct": "C",
+  "explanation": "Constraint «must use valid SQL syntax and cannot contain» кастомные Python-функции, вызовы внешних сервисов и подзапросы, ссылающиеся на другие таблицы. Вариант C — подзапрос к другой таблице. Остальные — обычные булевы SQL-выражения, которые «evaluate to true or false for each record».",
+  "sources": [
+    "https://docs.databricks.com/aws/en/ldp/expectations",
+    "https://docs.databricks.com/aws/en/ldp/developer/ldp-python-ref-expectations"
+  ]
+}

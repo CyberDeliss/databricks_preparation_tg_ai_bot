@@ -1,0 +1,16 @@
+{
+  "id": "012-run-if-failed",
+  "topic": "Раздел 1 · Lakeflow Jobs",
+  "question": "Задача page_oncall должна запускаться, только если упала задача run_pipeline. Какое условие Run if выбрать и какой статус будет у page_oncall на здоровом прогоне?",
+  "options": [
+    "All succeeded; статус Upstream failed",
+    "At least one failed; статус Excluded",
+    "All done; статус Succeeded",
+    "None failed; статус Skipped"
+  ],
+  "correct": "B",
+  "explanation": "«At least one failed — At least one dependency failed». Если условие из «failure»-семейства (At least one failed, All failed) не выполнено, задача получает статус Excluded, а не Upstream failed — поэтому на здоровом прогоне job не выглядит упавшим.",
+  "sources": [
+    "https://docs.databricks.com/aws/en/jobs/run-if"
+  ]
+}

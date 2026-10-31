@@ -1,0 +1,17 @@
+{
+  "id": "007-two-alarms",
+  "topic": "Раздел 4 · Мониторинг и алерты",
+  "question": "На silver_orders стоит retain-expectation plausible_email. Доля плохих email выросла до 12%, а email-нотификации пайплайна включены на все события. Что произойдёт?",
+  "options": [
+    "Придёт нотификация «A pipeline update fails»",
+    "Придёт нотификация «A single data flow fails»",
+    "Нотификация не придёт: retain оставляет апдейт COMPLETED; для порога по данным нужен Databricks SQL alert",
+    "Пайплайн автоматически переключит правило на DROP ROW"
+  ],
+  "correct": "C",
+  "explanation": "Pipeline notifications срабатывают на события жизненного цикла (успех, отказ, фатальный отказ, отказ одного flow). Retain-правило не валит прогон — он завершается COMPLETED, значит нотификаций не будет. Порог по числу в данных ловится SQL-алертом (запрос по расписанию + условие + получатель). Отказ прогона вызвал бы только FAIL UPDATE.",
+  "sources": [
+    "https://docs.databricks.com/aws/en/ldp/observability",
+    "https://docs.databricks.com/aws/en/sql/user/alerts/create"
+  ]
+}

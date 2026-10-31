@@ -1,0 +1,16 @@
+{
+  "id": "010-alert-html",
+  "topic": "Раздел 4 · Мониторинг и алерты",
+  "question": "Какой тип notification destination у Databricks SQL alert умеет отображать HTML в кастомном шаблоне сообщения?",
+  "options": [
+    "Slack",
+    "Webhook",
+    "Email",
+    "Все destination одинаково"
+  ],
+  "correct": "C",
+  "explanation": "В доках: «Only email notification destinations can render HTML». Webhook получает JSON-payload; другие destination (например, Slack) заводит админ через Manage notification destinations. Шаблон настраивается в Advanced settings → Customize template, переменные вида {{ALERT_NAME}}, {{ALERT_STATUS}}.",
+  "sources": [
+    "https://docs.databricks.com/aws/en/sql/user/alerts/create"
+  ]
+}
