@@ -7,7 +7,7 @@ A Telegram bot that quizzes anyone who presses **/start** on the Databricks Cert
 - **/start**: a greeting and the first question.
 - Under every question there is a **«✅ Правильный ответ и почему»** button: the correct option, the explanation and links to docs.databricks.com.
 - After the answer there is a **«➡️ Ещё вопрос»** button for the next unseen question.
-- Every day from 9:00 (Europe/Budapest) each subscriber who has not received a question that day gets one automatically.
+- Every day from 10:00 (Europe/Belgrade) each subscriber who has not received a question that day gets one automatically.
 - **/question** sends the next question, and **/stop** turns off the daily messages.
 
 ## Timing (private repo)

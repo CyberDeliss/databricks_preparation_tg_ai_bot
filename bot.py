@@ -8,7 +8,7 @@ Behaviour
   /start, /question   -> subscribe the chat and send the next unseen question
   button "answer"     -> correct option + explanation, then a "next question" button
   button "next"       -> next unseen question
-  every day at DAILY_HOUR (Europe/Budapest) every subscriber who has not received
+  every day at DAILY_HOUR (Europe/Belgrade) every subscriber who has not received
   a question that day gets one automatically, so everyone gets at least 1 per day.
 
 Questions live in questions/*.json (see questions/README.md for the format).
@@ -40,8 +40,8 @@ from cryptography.fernet import Fernet, InvalidToken
 ROOT = Path(__file__).parent
 QUESTIONS_DIR = ROOT / "questions"
 STATE_FILE = Path(os.environ.get("STATE_FILE", "state.enc"))
-TZ = ZoneInfo("Europe/Budapest")
-DAILY_HOUR = 9
+TZ = ZoneInfo("Europe/Belgrade")
+DAILY_HOUR = 10
 TG_LIMIT = 4096
 
 TOKEN = os.environ.get("TG_BOT_SECRET", "").strip()
@@ -159,7 +159,7 @@ class Bot:
         if not unseen:
             self.safe_send(chat_id, text=(
                 "Все вопросы, что есть сейчас, пройдены 🎉\n"
-                "Новые добавляются регулярно — завтра в 9:00 пришлю следующий."))
+                "Новые добавляются регулярно — завтра в 10:00 пришлю следующий."))
             return
         q = unseen[0]
         number = questions.index(q) + 1
@@ -179,7 +179,7 @@ class Bot:
             self.safe_send(chat_id, text=(
                 "Привет! Я присылаю вопросы для подготовки к экзамену "
                 "<b>Databricks Certified Data Engineer Professional</b>.\n\n"
-                "Каждый день в 9:00 (Будапешт) — новый вопрос. Под вопросом есть кнопка "
+                "Каждый день в 10:00 (Белград) — новый вопрос. Под вопросом есть кнопка "
                 "с правильным ответом и объяснением, а после — кнопка «Ещё вопрос».\n\n"
                 "Начнём 👇"))
             self.send_next_question(chat_id)
