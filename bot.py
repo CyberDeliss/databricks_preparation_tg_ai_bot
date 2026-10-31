@@ -1,47 +1,44 @@
 """Telegram quiz bot for the Databricks Certified Data Engineer Professional exam.
 
-Runs as a long-lived worker inside GitHub Actions (no server needed):
+Runs inside GitHub Actions and stores NOTHING about users:
 
-  python bot.py run --minutes 340
+  python bot.py poll    - answer everything people sent since the last run
+  python bot.py daily   - send today's question to every chat id listed in TG_CHAT_ID
+  python bot.py check   - validate the question files
 
 Behaviour
-  /start, /question   -> subscribe the chat and send the next unseen question
-  button "answer"     -> correct option + explanation, then a "next question" button
-  button "next"       -> next unseen question
-  every day at DAILY_HOUR (Europe/Belgrade) every subscriber who has not received
-  a question that day gets one automatically, so everyone gets at least 1 per day.
+  /start              -> greeting + question 1
+  /question           -> today's question
+  "answer" button     -> correct option + explanation, then a "next question" button
+  "next" button       -> the question after the one it was pressed under (the id travels
+                         inside the button, so no per-user progress is needed)
 
-Questions live in questions/*.json (see questions/README.md for the format).
-Per-user progress is stored encrypted (key derived from the bot token) in the file
-state.enc on the `bot-state` branch, so nothing personal is readable in a public repo.
+Telegram itself remembers which updates the bot has already fetched (getUpdates with
+offset confirms them), so there is no local state at all.
 
-Only the standard library plus `cryptography` is used. Environment:
+Environment
   TG_BOT_SECRET  bot token from @BotFather (required)
-  STATE_FILE     path of the encrypted state file (default: state.enc)
+  TG_CHAT_ID     comma-separated chat ids that get the daily question (daily mode)
+  SCHEDULE       the cron string that started the run (daily mode, set by the workflow)
 """
 
-import argparse
-import base64
 import datetime as dt
-import hashlib
 import html
 import json
 import os
+import re
 import sys
-import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from cryptography.fernet import Fernet, InvalidToken
-
 ROOT = Path(__file__).parent
 QUESTIONS_DIR = ROOT / "questions"
-STATE_FILE = Path(os.environ.get("STATE_FILE", "state.enc"))
 TZ = ZoneInfo("Europe/Belgrade")
 DAILY_HOUR = 10
+FIRST_DAY = dt.date(2026, 11, 1)  # the day question 1 is the daily question
 TG_LIMIT = 4096
 
 TOKEN = os.environ.get("TG_BOT_SECRET", "").strip()
@@ -53,9 +50,7 @@ BTN_NEXT = "➡️ Ещё вопрос"
 
 # ---------------------------------------------------------------- Telegram API
 class TelegramError(Exception):
-    def __init__(self, code, description):
-        super().__init__(f"{code}: {description}")
-        self.code = code
+    pass
 
 
 def tg(method, http_timeout=30, **params):
@@ -68,12 +63,28 @@ def tg(method, http_timeout=30, **params):
     except urllib.error.HTTPError as exc:
         body = json.load(exc)
     if not body.get("ok"):
-        raise TelegramError(body.get("error_code"), body.get("description"))
+        raise TelegramError(f"{method}: {body.get('error_code')} {body.get('description')}")
     return body["result"]
 
 
-def keyboard(*buttons):
-    return {"inline_keyboard": [[{"text": text, "callback_data": data}] for text, data in buttons]}
+def keyboard(text, data):
+    return {"inline_keyboard": [[{"text": text, "callback_data": data}]]}
+
+
+def send(chat_id, text, **params):
+    try:
+        tg("sendMessage", chat_id=chat_id, text=text, parse_mode="HTML",
+           disable_web_page_preview=True, **params)
+    except TelegramError as exc:
+        print(f"send to {chat_id} failed: {exc}")
+
+
+def drop_buttons(chat_id, message_id):
+    try:
+        tg("editMessageReplyMarkup", chat_id=chat_id, message_id=message_id,
+           reply_markup={"inline_keyboard": []})
+    except TelegramError:
+        pass
 
 
 # ---------------------------------------------------------------- questions
@@ -86,236 +97,144 @@ def load_questions():
     return questions
 
 
+def esc(text):
+    return html.escape(text, quote=False)
+
+
 def render_question(q, number, total):
-    lines = [f"<b>Вопрос {number}/{total}</b> · {html.escape(q.get('topic', ''), quote=False)}", ""]
-    lines.append(html.escape(q["question"], quote=False))
-    lines.append("")
+    lines = [f"<b>Вопрос {number}/{total}</b> · {esc(q.get('topic', ''))}", "", esc(q["question"]), ""]
     for letter, option in zip("ABCDEFG", q["options"]):
-        lines.append(f"<b>{letter})</b> {html.escape(option, quote=False)}")
+        lines.append(f"<b>{letter})</b> {esc(option)}")
     return "\n".join(lines)[:TG_LIMIT]
 
 
 def render_answer(q):
     letter = q["correct"]
     option = q["options"]["ABCDEFG".index(letter)]
-    lines = [f"<b>Правильный ответ: {letter})</b> {html.escape(option, quote=False)}", ""]
-    lines.append(html.escape(q["explanation"], quote=False))
+    lines = [f"<b>Правильный ответ: {letter})</b> {esc(option)}", "", esc(q["explanation"])]
     if q.get("sources"):
-        lines.append("")
-        lines.append("<b>Источники:</b>")
-        lines.extend(html.escape(s, quote=False) for s in q["sources"])
+        lines += ["", "<b>Источники:</b>", *map(esc, q["sources"])]
     return "\n".join(lines)[:TG_LIMIT]
 
 
-# ---------------------------------------------------------------- state
-def _fernet():
-    key = hashlib.sha256(("state-v1:" + TOKEN).encode()).digest()
-    return Fernet(base64.urlsafe_b64encode(key))
-
-
-def load_state():
-    if STATE_FILE.exists():
-        try:
-            return json.loads(_fernet().decrypt(STATE_FILE.read_bytes()))
-        except (InvalidToken, ValueError) as exc:
-            print(f"WARNING: could not read state ({exc}); starting fresh")
-    return {"offset": 0, "users": {}}
-
-
-def save_state(state):
-    STATE_FILE.write_bytes(_fernet().encrypt(json.dumps(state).encode()))
-
-
-# ---------------------------------------------------------------- bot logic
-class Bot:
-    def __init__(self):
-        self.state = load_state()
-        self.dirty = False
-
-    def user(self, chat_id):
-        users = self.state["users"]
-        key = str(chat_id)
-        if key not in users:
-            users[key] = {"seen": [], "last_sent": None, "active": True}
-            self.dirty = True
-        return users[key]
-
-    def safe_send(self, chat_id, **params):
-        try:
-            return tg("sendMessage", chat_id=chat_id, parse_mode="HTML", **params)
-        except TelegramError as exc:
-            if exc.code == 403:  # user blocked the bot
-                self.user(chat_id)["active"] = False
-                self.dirty = True
-                print(f"chat {chat_id} blocked the bot; unsubscribed")
-            else:
-                print(f"send to {chat_id} failed: {exc}")
-
-    def send_next_question(self, chat_id):
-        u = self.user(chat_id)
-        u["active"] = True
-        questions = load_questions()
-        unseen = [q for q in questions if q["id"] not in u["seen"]]
-        if not unseen:
-            self.safe_send(chat_id, text=(
-                "Все вопросы, что есть сейчас, пройдены 🎉\n"
-                "Новые добавляются регулярно — завтра в 10:00 пришлю следующий."))
-            return
-        q = unseen[0]
-        number = questions.index(q) + 1
-        self.safe_send(
-            chat_id,
-            text=render_question(q, number, len(questions)),
-            reply_markup=keyboard((BTN_ANSWER, f"ans:{q['id']}")),
-        )
-        u["seen"].append(q["id"])
-        u["last_sent"] = dt.datetime.now(TZ).date().isoformat()
-        self.dirty = True
-
-    def handle_message(self, msg):
-        chat_id = msg["chat"]["id"]
-        text = (msg.get("text") or "").strip().lower()
-        if text.startswith("/start"):
-            self.safe_send(chat_id, text=(
-                "Привет! Я присылаю вопросы для подготовки к экзамену "
-                "<b>Databricks Certified Data Engineer Professional</b>.\n\n"
-                "Каждый день в 10:00 (Белград) — новый вопрос. Под вопросом есть кнопка "
-                "с правильным ответом и объяснением, а после — кнопка «Ещё вопрос».\n\n"
-                "Начнём 👇"))
-            self.send_next_question(chat_id)
-        elif text.startswith("/question") or text.startswith("/next"):
-            self.send_next_question(chat_id)
-        elif text.startswith("/stop"):
-            self.user(chat_id)["active"] = False
-            self.dirty = True
-            self.safe_send(chat_id, text="Ок, больше не буду присылать ежедневные вопросы. /start — вернуться.")
-        else:
-            self.safe_send(chat_id, text="Нажми /question, чтобы получить вопрос.",
-                           reply_markup=keyboard((BTN_NEXT, "next")))
-
-    def handle_callback(self, cb):
-        data = cb.get("data", "")
-        msg = cb.get("message") or {}
-        chat_id = (msg.get("chat") or {}).get("id")
-        try:
-            tg("answerCallbackQuery", callback_query_id=cb["id"])
-        except TelegramError as exc:
-            print(f"answerCallbackQuery failed: {exc}")
-        if chat_id is None:
-            return
-        if data.startswith("ans:"):
-            qid = data[4:]
-            q = next((q for q in load_questions() if q["id"] == qid), None)
-            # remove the button under the question so it is not pressed twice
-            try:
-                tg("editMessageReplyMarkup", chat_id=chat_id, message_id=msg["message_id"],
-                   reply_markup={"inline_keyboard": []})
-            except TelegramError:
-                pass
-            if q is None:
-                self.safe_send(chat_id, text="Этот вопрос больше не найден.",
-                               reply_markup=keyboard((BTN_NEXT, "next")))
-                return
-            self.safe_send(chat_id, text=render_answer(q),
-                           reply_markup=keyboard((BTN_NEXT, "next")),
-                           disable_web_page_preview=True)
-        elif data == "next":
-            try:
-                tg("editMessageReplyMarkup", chat_id=chat_id, message_id=msg["message_id"],
-                   reply_markup={"inline_keyboard": []})
-            except TelegramError:
-                pass
-            self.send_next_question(chat_id)
-
-    def daily(self):
-        now = dt.datetime.now(TZ)
-        if now.hour < DAILY_HOUR:
-            return
-        today = now.date().isoformat()
-        for chat_id, u in list(self.state["users"].items()):
-            if u.get("active") and u.get("last_sent") != today:
-                print(f"daily question -> {chat_id}")
-                self.send_next_question(int(chat_id))
-                if u.get("last_sent") != today:  # nothing left to send; don't retry all day
-                    u["last_sent"] = today
-                    self.dirty = True
-
-    def poll_once(self, wait):
-        params = {"offset": self.state["offset"], "timeout": wait,
-                  "allowed_updates": ["message", "callback_query"]}
-        updates = tg("getUpdates", http_timeout=wait + 15, **params)
-        for upd in updates:
-            self.state["offset"] = upd["update_id"] + 1
-            self.dirty = True
-            try:
-                if "message" in upd and "chat" in upd["message"]:
-                    self.handle_message(upd["message"])
-                elif "callback_query" in upd:
-                    self.handle_callback(upd["callback_query"])
-            except Exception as exc:  # never let one bad update kill the worker
-                print(f"update {upd['update_id']} failed: {exc!r}")
-
-    def run(self, minutes, on_save):
-        tg("deleteWebhook")
-        deadline = time.monotonic() + minutes * 60
-        last_save = time.monotonic()
-        while time.monotonic() < deadline:
-            try:
-                self.daily()
-                self.poll_once(wait=min(50, max(1, int(deadline - time.monotonic()))))
-            except Exception as exc:
-                print(f"loop error: {exc!r}; retrying in 10s")
-                time.sleep(10)
-            if self.dirty and time.monotonic() - last_save > 60:
-                self.flush(on_save)
-                last_save = time.monotonic()
-        self.flush(on_save)
-
-    def run_once(self, on_save):
-        """Short run for a private repo: handle everything queued since last time, then exit."""
-        tg("deleteWebhook")
-        self.daily()
-        while True:
-            before = self.state["offset"]
-            self.poll_once(wait=0)
-            if self.state["offset"] == before:
-                break
-        self.flush(on_save)
-
-    def flush(self, on_save):
-        if self.dirty:
-            save_state(self.state)
-            self.dirty = False
-            on_save()
-
-
-def git_push_state():
-    """Commit state.enc to the bot-state branch (the workflow checks it out into ./state)."""
-    if not os.environ.get("GITHUB_ACTIONS"):
+def send_question(chat_id, index):
+    questions = load_questions()
+    if not questions:
+        send(chat_id, "Вопросов пока нет — загляни позже.")
         return
-    d = STATE_FILE.parent
-    os.system(
-        f'cd "{d}" && git add {STATE_FILE.name} && '
-        f'git -c user.name="quiz-bot" -c user.email="quiz-bot@users.noreply.github.com" '
-        f'commit -q -m "update state" && git push -q origin HEAD:bot-state'
-    )
+    index %= len(questions)
+    q = questions[index]
+    send(chat_id, render_question(q, index + 1, len(questions)),
+         reply_markup=keyboard(BTN_ANSWER, f"ans:{q['id']}"))
 
 
-def check_questions():
-    """Validate every question file; exit non-zero on problems (used in CI)."""
-    ok = True
-    ids = set()
+def index_of(qid):
+    ids = [q["id"] for q in load_questions()]
+    return ids.index(qid) if qid in ids else None
+
+
+def todays_index():
+    return (dt.datetime.now(TZ).date() - FIRST_DAY).days
+
+
+# ---------------------------------------------------------------- modes
+def handle_message(msg):
+    chat_id = msg["chat"]["id"]
+    text = (msg.get("text") or "").strip().lower()
+    if text.startswith("/start"):
+        send(chat_id,
+             "Привет! Я задаю вопросы для подготовки к экзамену "
+             "<b>Databricks Certified Data Engineer Professional</b>.\n\n"
+             "Под каждым вопросом — кнопка с правильным ответом и объяснением, "
+             "а после неё — «Ещё вопрос». /question — вопрос дня.\n\nНачнём 👇")
+        send_question(chat_id, 0)
+    elif text.startswith("/question"):
+        send_question(chat_id, todays_index())
+    else:
+        send(chat_id, "Нажми /question, чтобы получить вопрос дня.")
+
+
+def handle_callback(cb):
+    try:
+        tg("answerCallbackQuery", callback_query_id=cb["id"])
+    except TelegramError as exc:
+        print(f"answerCallbackQuery failed: {exc}")
+    msg = cb.get("message") or {}
+    chat_id = (msg.get("chat") or {}).get("id")
+    if chat_id is None:
+        return
+    kind, _, qid = (cb.get("data") or "").partition(":")
+    drop_buttons(chat_id, msg["message_id"])
+    i = index_of(qid)
+    if i is None:
+        send(chat_id, "Этот вопрос больше не найден.")
+        send_question(chat_id, todays_index())
+    elif kind == "ans":
+        send(chat_id, render_answer(load_questions()[i]),
+             reply_markup=keyboard(BTN_NEXT, f"next:{qid}"))
+    elif kind == "next":
+        send_question(chat_id, i + 1)
+
+
+def poll():
+    tg("deleteWebhook")  # getUpdates does not work while a webhook is set
+    while True:
+        updates = tg("getUpdates", timeout=0, allowed_updates=["message", "callback_query"])
+        if not updates:
+            break
+        for upd in updates:
+            try:
+                if "callback_query" in upd:
+                    handle_callback(upd["callback_query"])
+                elif "chat" in (upd.get("message") or {}):
+                    handle_message(upd["message"])
+            except Exception as exc:  # one bad update must not block the rest
+                print(f"update {upd['update_id']} failed: {exc!r}")
+        # confirming with offset = last + 1 makes Telegram forget these updates
+        tg("getUpdates", offset=updates[-1]["update_id"] + 1, timeout=0)
+    print("poll done")
+
+
+def is_daily_slot(schedule):
+    """True if the cron that started this run is the one matching 10:00 in Belgrade today.
+
+    GitHub cron is UTC-only, so the workflow has two daily crons (08:00 and 09:00 UTC);
+    exactly one of them is 10:00 Belgrade depending on summer/winter time. Checking the
+    cron string rather than the clock means a delayed run still sends exactly once.
+    """
+    m = re.match(r"^\s*(\d+)\s+(\d+)\s", schedule or "")
+    if not m:
+        return True  # manual run: send
+    today = dt.datetime.now(TZ).date()
+    target_utc = dt.datetime.combine(today, dt.time(DAILY_HOUR), TZ).astimezone(dt.timezone.utc)
+    return int(m.group(2)) == target_utc.hour
+
+
+def daily():
+    if not is_daily_slot(os.environ.get("SCHEDULE")):
+        print("not the 10:00 Belgrade slot today; skipping")
+        return
+    chat_ids = [c for c in re.split(r"[\s,;]+", os.environ.get("TG_CHAT_ID", "")) if c]
+    if not chat_ids:
+        print("TG_CHAT_ID is empty; nobody to send to")
+        return
+    for chat_id in chat_ids:
+        send_question(chat_id, todays_index())
+    print(f"daily question sent to {len(chat_ids)} chat(s)")
+
+
+def check():
+    ok, ids = True, set()
     for q in load_questions():
-        problems = []
-        for field in ("question", "options", "correct", "explanation"):
-            if not q.get(field):
-                problems.append(f"missing {field}")
-        if q.get("correct") and q.get("options") and q["correct"] not in "ABCDEFG"[: len(q["options"])]:
+        problems = [f"missing {f}" for f in ("question", "options", "correct", "explanation") if not q.get(f)]
+        if not problems and q["correct"] not in "ABCDEFG"[: len(q["options"])]:
             problems.append("correct letter out of range")
         if q["id"] in ids:
             problems.append("duplicate id")
+        if len(f"next:{q['id']}".encode()) > 64:
+            problems.append("id too long for a Telegram button (max ~59 chars)")
         ids.add(q["id"])
-        if len(render_question(q, 1, 1)) >= TG_LIMIT or len(render_answer(q)) >= TG_LIMIT:
+        if not problems and (len(render_question(q, 1, 1)) >= TG_LIMIT or len(render_answer(q)) >= TG_LIMIT):
             problems.append("too long for Telegram")
         if problems:
             ok = False
@@ -325,15 +244,9 @@ def check_questions():
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    ap.add_argument("mode", choices=["once", "run", "check"])
-    ap.add_argument("--minutes", type=float, default=340)
-    args = ap.parse_args()
-    if args.mode == "check":
-        sys.exit(0 if check_questions() else 1)
+    mode = sys.argv[1] if len(sys.argv) > 1 else "poll"
+    if mode == "check":
+        sys.exit(0 if check() else 1)
     if not TOKEN:
         sys.exit("TG_BOT_SECRET is not set")
-    if args.mode == "once":
-        Bot().run_once(on_save=git_push_state)
-    else:  # long-lived worker; only sensible in a public repo (unlimited Actions minutes)
-        Bot().run(args.minutes, on_save=git_push_state)
+    {"poll": poll, "daily": daily}[mode]()

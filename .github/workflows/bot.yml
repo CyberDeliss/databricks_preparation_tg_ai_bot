@@ -1,19 +1,22 @@
 name: Telegram bot
 
-# Private repo: GitHub gives 2000 free Actions minutes/month, and every run is billed as
-# at least 1 minute. Waking up every 30 minutes = ~1440 min/month, which fits.
+# Private repo: 2000 free Actions minutes/month, each run billed as >= 1 minute.
+# Polling every 30 minutes (~1440 min/month) plus two short daily runs fits.
 # GitHub may delay scheduled runs, so replies can take up to ~30-40 minutes.
 
 on:
   schedule:
-    - cron: "*/30 * * * *"
-  workflow_dispatch:
+    - cron: "*/30 * * * *"   # answer /start, /question and buttons
+    - cron: "0 8 * * *"      # 10:00 Belgrade in summer (CEST)
+    - cron: "0 9 * * *"      # 10:00 Belgrade in winter (CET); the bot picks the right one
   push:
     branches: [main]
     paths: ["questions/**", "bot.py"]
-
-permissions:
-  contents: write   # to save the encrypted progress file to the bot-state branch
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "poll or daily"
+        default: poll
 
 concurrency:
   group: telegram-bot
@@ -29,9 +32,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -q cryptography
-      - name: Validate questions
-        run: python bot.py check
+      - run: python bot.py check
 
   bot:
     if: github.event_name != 'push'
@@ -39,21 +40,13 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Check out saved progress (bot-state branch)
-        run: |
-          if git ls-remote --exit-code --heads origin bot-state >/dev/null; then
-            git clone -q --depth 1 --branch bot-state \
-              "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" state
-          else
-            mkdir state && cd state && git init -q -b bot-state && \
-            git remote add origin "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}"
-          fi
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -q cryptography
-      - name: Answer messages and send daily questions
+      - name: Run bot
         env:
           TG_BOT_SECRET: ${{ secrets.TG_BOT_SECRET }}
-          STATE_FILE: state/state.enc
-        run: python bot.py once
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          SCHEDULE: ${{ github.event.schedule }}
+          MODE: ${{ github.event.schedule == '*/30 * * * *' && 'poll' || (github.event_name == 'schedule' && 'daily' || inputs.mode) }}
+        run: python bot.py "$MODE"
